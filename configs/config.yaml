@@ -1,0 +1,14 @@
+data:
+  raw_data_path: "data/raw/songs.csv"               # Path to raw data CSV
+  processed_data_path: "data/processed/processed_songs.csv"  # Path to processed data CSV
+
+output:
+  model_dir: "outputs/models"           # Where to save trained models
+  figures_dir: "outputs/figures"        # Where to save charts/plots
+  predictions_dir: "outputs/predictions" # Where to save prediction CSVs
+
+test_size: 0.2          # Train/test split fraction
+random_seed: 42         # Random seed for reproducibility
+
+model:
+  target_column: "popularity_score"    # Your target variable name
