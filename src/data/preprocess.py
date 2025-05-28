@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.base import BaseEstimator, TransformerMixin
 
 class DataStandardizer:
     """
@@ -55,3 +56,32 @@ class DataStandardizer:
         """
         self.fit(df, target_col=target_col)
         return self.transform(df)
+
+
+
+
+class SmoothedTargetEncoder(BaseEstimator, TransformerMixin):
+    def __init__(self, column, smoothing=10):
+        self.column = column
+        self.smoothing = smoothing
+        self.mapping = None
+        self.global_mean = None
+
+    def fit(self, X, y):
+        df = X.copy()
+        df['target'] = y
+        self.global_mean = y.mean()
+        stats = df.groupby(self.column)['target'].agg(['mean', 'count'])
+        smoothing = self.smoothing
+        smoothed = (stats['mean'] * stats['count'] + self.global_mean * smoothing) / (stats['count'] + smoothing)
+        self.mapping = smoothed
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+        df[f'{self.column}_encoded'] = df[self.column].map(self.mapping)
+        df[f'{self.column}_encoded'].fillna(self.global_mean, inplace=True)
+        return df.drop(columns=[self.column])
+
+    def fit_transform(self, X, y):
+        return self.fit(X, y).transform(X)

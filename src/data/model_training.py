@@ -11,7 +11,7 @@ def load_yaml(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
-def train_and_evaluate(X_train, y_train, X_val, y_val, config_path, params_path):
+def train_and_evaluate(X_train, y_train, X_val, y_val, config_path, params_path, suffix=""):
     config = load_yaml(config_path)
     params = load_yaml(params_path)
     rf_params = params["random_forest"]
@@ -32,7 +32,7 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, config_path, params_path)
         mlflow.sklearn.log_model(model, "model")
 
         # Save model
-        model_path = config["output"]["model_dir"] + "/random_forest.joblib"
+        model_path = config["output"]["model_dir"] + f"/random_forest_{suffix}.joblib"
         save_model(model, model_path)
 
         print(f"Validation RMSE: {score:.4f}")
@@ -43,7 +43,7 @@ def predict_and_save(model, X_test, config_path, suffix=""):
     preds = model.predict(X_test)
     target_col = config["model"]["target_column"]
     preds_df = pd.DataFrame({
-        "id": X_test["id"].values,
+        "id": X_test["id"].astype(int).values,
         target_col: preds
     })
     # Add suffix to the filename if provided

@@ -26,3 +26,72 @@ def correlation_matrix(df, config, filename="correlation_matrix.png", figsize=(1
     save_figure(fig, filename, config)
     plt.show()
     plt.close(fig)
+
+
+def plot_categorical_count(df, col, top_n=20, figsize=(10, 4)):
+    """
+    Plots the count of categories for a given column.
+    If unique values > top_n, plots only the top_n categories.
+    """
+    n_unique = df[col].nunique()
+    plt.figure(figsize=figsize)
+    if n_unique <= top_n:
+        order = df[col].value_counts().index
+        sns.countplot(data=df, x=col, order=order)
+        plt.title(f"Frequency of {col}")
+    else:
+        top_cats = df[col].value_counts().head(top_n)
+        sns.barplot(x=top_cats.index, y=top_cats.values)
+        plt.title(f"Top {top_n} categories in {col}")
+        plt.ylabel("Count")
+    plt.xticks(rotation=45 if n_unique <= top_n else 90)
+    plt.tight_layout()
+    plt.show()
+
+def plot_target_by_category(df, col, target_col, top_n=20, figsize=(10, 4)):
+    """
+    Plots the distribution of the target variable by category.
+    For high-cardinality columns, shows only the top_n categories by frequency.
+    """
+    n_unique = df[col].nunique()
+    plt.figure(figsize=figsize)
+    if n_unique <= top_n:
+        sns.boxplot(data=df, x=col, y=target_col)
+        plt.title(f"{target_col} by {col}")
+        plt.xticks(rotation=45)
+    else:
+        top_cats = df[col].value_counts().head(top_n).index
+        means = df[df[col].isin(top_cats)].groupby(col)[target_col].mean().sort_values(ascending=False)
+        sns.barplot(x=means.index, y=means.values)
+        plt.title(f"Mean {target_col} for top {top_n} {col}")
+        plt.ylabel(f"Mean {target_col}")
+        plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.show()
+    
+    
+def plot_violin_by_category(df, col, target_col, figsize=(10, 5)):
+    """
+    Plots a violin plot of the target variable by a categorical column.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    plt.figure(figsize=figsize)
+    sns.violinplot(data=df, x=col, y=target_col, inner='quartile')
+    plt.title(f'Violin plot of {target_col} by {col}')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+def plot_swarm_by_category(df, col, target_col, figsize=(10, 5), size=2):
+    """
+    Plots a swarm plot of the target variable by a categorical column.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    plt.figure(figsize=figsize)
+    sns.swarmplot(data=df, x=col, y=target_col, size=size)
+    plt.title(f'Swarm plot of {target_col} by {col}')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
