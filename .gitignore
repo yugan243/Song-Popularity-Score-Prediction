@@ -87,3 +87,6 @@ outputs/
 *.model
 *.h5
 *.ckpt
+
+# Ignore mlrun logs
+mlruns/
