@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.base import BaseEstimator, TransformerMixin
+
 
 class DataStandardizer:
     """
@@ -60,28 +60,38 @@ class DataStandardizer:
 
 
 
-class SmoothedTargetEncoder(BaseEstimator, TransformerMixin):
-    def __init__(self, column, smoothing=10):
-        self.column = column
-        self.smoothing = smoothing
-        self.mapping = None
-        self.global_mean = None
+class CombinedFrequencyEncoder:
+    def __init__(self, columns):
+        """
+        :param columns: List of columns to frequency encode
+        """
+        self.columns = columns
+        self.freq_maps = {}
 
-    def fit(self, X, y):
-        df = X.copy()
-        df['target'] = y
-        self.global_mean = y.mean()
-        stats = df.groupby(self.column)['target'].agg(['mean', 'count'])
-        smoothing = self.smoothing
-        smoothed = (stats['mean'] * stats['count'] + self.global_mean * smoothing) / (stats['count'] + smoothing)
-        self.mapping = smoothed
-        return self
+    def fit(self, train_df, test_df):
+        """
+        Fit frequency maps using combined train + test datasets.
+        """
+        combined = pd.concat([train_df[self.columns], test_df[self.columns]], axis=0)
+        for col in self.columns:
+            freq = combined[col].value_counts(normalize=True)
+            self.freq_maps[col] = freq
 
-    def transform(self, X):
-        df = X.copy()
-        df[f'{self.column}_encoded'] = df[self.column].map(self.mapping)
-        df[f'{self.column}_encoded'].fillna(self.global_mean, inplace=True)
-        return df.drop(columns=[self.column])
+    def transform(self, df):
+        """
+        Apply frequency encoding to a given DataFrame.
+        """
+        df_encoded = df.copy()
+        for col in self.columns:
+            df_encoded[f"{col}_encoded"] = df_encoded[col].map(self.freq_maps[col])
+        return df_encoded
 
-    def fit_transform(self, X, y):
-        return self.fit(X, y).transform(X)
+    def fit_transform(self, train_df, test_df):
+        """
+        Fit on combined data, then transform both train and test.
+        Returns: encoded_train_df, encoded_test_df
+        """
+        self.fit(train_df, test_df)
+        train_encoded = self.transform(train_df)
+        test_encoded = self.transform(test_df)
+        return train_encoded, test_encoded

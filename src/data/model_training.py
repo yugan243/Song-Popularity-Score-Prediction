@@ -5,7 +5,10 @@ from xgboost import XGBRegressor
 from src.utils.io import save_model, save_predictions
 from src.utils.metrics import rmse
 import pandas as pd
+import numpy as np
 import optuna
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import Binarizer
 
 
 
@@ -20,24 +23,30 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, config_path, params_path,
     model = RandomForestRegressor(**rf_params)
 
     mlflow.set_tracking_uri("file:../outputs/mlruns")
-    mlflow.set_tracking_uri("file:../outputs/mlruns")
     mlflow.set_experiment("RandomForestRegression")
+
     with mlflow.start_run():
-        model = RandomForestRegressor(**rf_params)
         model.fit(X_train, y_train)
         preds = model.predict(X_val)
         score = rmse(y_val, preds)
 
+        # Compute additional accuracy metric using binarization (threshold=50)
+        binarizer = Binarizer(threshold=50)
+        y_val_bin = binarizer.fit_transform(np.array(y_val).reshape(-1, 1)).ravel()
+        preds_bin = binarizer.transform(np.array(preds).reshape(-1, 1)).ravel()
+        acc = accuracy_score(y_val_bin, preds_bin)
+
         # Log with MLflow
         mlflow.log_params(rf_params)
         mlflow.log_metric("rmse", score)
+        mlflow.log_metric("accuracy", acc)
         mlflow.sklearn.log_model(model, "model")
 
         # Save model
         model_path = config["output"]["model_dir"] + f"/random_forest_{suffix}.joblib"
         save_model(model, model_path)
 
-        print(f"Validation RMSE: {score:.4f}")
+        print(f"Validation RMSE: {score:.4f}, Accuracy: {acc:.4f}")
         return model, score
 
 def optimize_xgboost_with_optuna(X_train, y_train, X_val, y_val, config_path, suffix="", n_trials=50):
@@ -66,6 +75,7 @@ def optimize_xgboost_with_optuna(X_train, y_train, X_val, y_val, config_path, su
         preds = model.predict(X_val)
         score = rmse(y_val, preds)
         trial.set_user_attr("best_model", model)
+        trial.set_user_attr("preds", preds)
         return score
 
     study = optuna.create_study(direction="minimize")
@@ -74,15 +84,24 @@ def optimize_xgboost_with_optuna(X_train, y_train, X_val, y_val, config_path, su
     best_model = study.best_trial.user_attrs["best_model"]
     best_score = study.best_value
     best_params = study.best_params
+    preds = study.best_trial.user_attrs["preds"]
+
+    # Compute additional accuracy metric using binarization (threshold=50)
+    binarizer = Binarizer(threshold=50)
+    y_val_bin = binarizer.fit_transform(np.array(y_val).reshape(-1, 1)).ravel()
+    preds_bin = binarizer.transform(np.array(preds).reshape(-1, 1)).ravel()
+    acc = accuracy_score(y_val_bin, preds_bin)
 
     with mlflow.start_run():
         mlflow.log_params(best_params)
         mlflow.log_metric("rmse", best_score)
+        mlflow.log_metric("accuracy", acc)
         mlflow.sklearn.log_model(best_model, "model")
 
         model_path = config["output"]["model_dir"] + f"/xgboost_optuna_{suffix}.joblib"
         save_model(best_model, model_path)
-        print(f"Best Validation RMSE: {best_score:.4f}")
+
+        print(f"Best Validation RMSE: {best_score:.4f}, Accuracy: {acc:.4f}")
 
     return best_model, best_score, best_params
 
