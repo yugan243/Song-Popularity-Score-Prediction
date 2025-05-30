@@ -1,6 +1,8 @@
 from IPython.display import display
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
+import pandas as pd
 
 def initial_data_inspection(df, name="Dataset"):
     print(f"===== {name} Overview =====")
@@ -43,3 +45,39 @@ def initial_data_inspection(df, name="Dataset"):
     plt.tight_layout()
     plt.show()
 
+
+
+def get_highly_correlated_pairs(df, threshold=0.8):
+    """
+    Finds feature pairs with correlation above `threshold` or below `-threshold`.
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame with numeric features.
+        threshold (float): Correlation threshold (default=0.8).
+        
+    Returns:
+        pd.DataFrame: DataFrame of correlated feature pairs with columns:
+                      ['Feature 1', 'Feature 2', 'Correlation']
+    """
+    # Compute correlation matrix
+    corr_matrix = df.corr()
+    
+    # Mask the upper triangle and diagonal
+    mask = np.tril(np.ones(corr_matrix.shape), k=-1).astype(bool)
+    corr_values = corr_matrix.where(mask)
+    
+    # Stack to long format
+    high_corr = corr_values.stack().reset_index()
+    high_corr.columns = ['Feature 1', 'Feature 2', 'Correlation']
+    
+    # Filter for signed correlations > threshold or < -threshold
+    high_corr = high_corr[
+        (high_corr['Correlation'] > threshold) | 
+        (high_corr['Correlation'] < -threshold)
+    ]
+    
+    # Sort by actual correlation value
+    high_corr = high_corr.sort_values(by='Correlation', ascending=False).reset_index(drop=True)
+    
+    display(high_corr)
+    return high_corr
