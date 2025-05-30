@@ -60,3 +60,69 @@ def create_date_features_train_test(train_df, test_df, date_col='publications_ti
     test_df['release_dayofweek_popularity_score'] = test_df['release_dayofweek'].map(dow_popularity)
 
     return train_df, test_df
+
+
+
+import pandas as pd
+from sklearn.cluster import KMeans
+import logging
+
+def create_composition_features(train_df: pd.DataFrame, test_df: pd.DataFrame, n_clusters: int = 5):
+    """
+    Create engineered features for both training and test data based on composition and track identifiers.
+
+    Args:
+        train_df (pd.DataFrame): Training DataFrame with target and required encoded columns.
+        test_df (pd.DataFrame): Test DataFrame without target but with required encoded columns.
+        n_clusters (int): Number of clusters for KMeans.
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]: Transformed train and test DataFrames with new features.
+    """
+    required_cols = [
+        "composition_label_0_encoded",
+        "composition_label_1_encoded",
+        "composition_label_2_encoded",
+        "track_identifier_encoded"
+    ]
+
+    for col in required_cols:
+        if col not in train_df.columns or col not in test_df.columns:
+            raise ValueError(f"Missing required column in train or test data: {col}")
+
+    try:
+        def _create_features(df: pd.DataFrame) -> pd.DataFrame:
+            df["composition_label_avg"] = (
+                df["composition_label_0_encoded"] +
+                df["composition_label_1_encoded"] +
+                df["composition_label_2_encoded"]
+            ) / 3
+
+            df["composition_label_diff_21"] = df["composition_label_2_encoded"] - df["composition_label_1_encoded"]
+            df["composition_label_diff_10"] = df["composition_label_1_encoded"] - df["composition_label_0_encoded"]
+
+            df["track_composition_interaction"] = (
+                df["track_identifier_encoded"] * df["composition_label_1_encoded"]
+            )
+            return df
+
+        # Apply basic features
+        train_df = _create_features(train_df.copy())
+        test_df = _create_features(test_df.copy())
+
+        # Combine for consistent clustering
+        combined_df = pd.concat([train_df[required_cols], test_df[required_cols]], axis=0)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+        cluster_labels = kmeans.fit_predict(combined_df)
+
+        # Split labels back to train and test
+        train_df["comp_track_cluster"] = cluster_labels[:len(train_df)]
+        test_df["comp_track_cluster"] = cluster_labels[len(train_df):]
+
+        print(f"✅ Feature creation completed: Train shape = {train_df.shape}, Test shape = {test_df.shape}")
+
+    except Exception as e:
+        logging.error(f"❌ Feature creation failed: {e}")
+        raise e
+
+    return train_df, test_df
