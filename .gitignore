@@ -76,9 +76,6 @@ venv.bak/
 logs/
 *.log
 
-# Data files (optional, if you don't want to commit large datasets)
-data/raw/
-data/processed/
 
 # Outputs (model weights, predictions, figures)
 outputs/
